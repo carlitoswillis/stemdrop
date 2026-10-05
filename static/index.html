@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>stemdrop</title>
+<style>
+  /* system: base 16 · ratio 1.25 · unit 8px · one sans + one mono · weights 400/700 */
+  :root{
+    --ground:#0f1013; --surface:#16181d; --ink:#ebedf0; --muted:#8b919c;
+    --line:rgba(255,255,255,.09); --signal:#f5b222;
+    --vocals:#d2789a; --drums:#5fb8a8; --bass:#8f85d8; --other:#9bb86b; --beat:#ebedf0;
+    --micro:12.8px; --body:16px; --sub:20px; --section:25px; --title:31px; --display:39px;
+    --u:8px;
+    --sans:-apple-system,"Inter","Segoe UI",system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--ground);color:var(--ink);font:400 var(--body)/1.5 var(--sans)}
+  body{padding:calc(var(--u)*8) calc(var(--u)*2) calc(var(--u)*12)}
+  main{max-width:760px;margin:0 auto}
+  a{color:inherit}
+  button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+
+  header{display:flex;align-items:baseline;gap:calc(var(--u)*2);margin-bottom:calc(var(--u)*6)}
+  header h1{font-size:var(--sub);font-weight:700;margin:0;letter-spacing:-.01em}
+  header p{margin:0;color:var(--muted)}
+  header .meta{margin-left:auto;font:400 var(--micro)/1.5 var(--mono);color:var(--muted)}
+
+  /* hero: the drop zone */
+  #drop{display:block;border:1px dashed rgba(255,255,255,.28);border-radius:4px;
+        padding:calc(var(--u)*10) calc(var(--u)*4);text-align:left;cursor:pointer;
+        transition:border-color .15s,background .15s}
+  #drop:hover,#drop.over{border-color:var(--signal);background:rgba(245,178,34,.04)}
+  #drop strong{display:block;font-size:var(--display);font-weight:700;line-height:1.15;letter-spacing:-.02em}
+  #drop span{display:block;color:var(--muted);margin-top:var(--u)}
+  #drop input{display:none}
+
+  /* options: one row, quiet */
+  .opts{display:grid;grid-template-columns:auto 1fr;gap:calc(var(--u)*1.5) calc(var(--u)*4);align-items:center;
+        padding:calc(var(--u)*2) 0 0;color:var(--muted);font-size:var(--micro)}
+  .opts .seg{grid-row:1/3}
+  .opts .seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+  .opts .seg button{padding:calc(var(--u)*.75) calc(var(--u)*1.5);color:var(--muted);font-size:var(--micro)}
+  .opts .seg button.on{background:var(--surface);color:var(--ink)}
+  .opts label{display:inline-flex;gap:var(--u);align-items:center;cursor:pointer}
+  .opts input[type=checkbox]{accent-color:var(--signal);margin:0}
+
+  /* jobs */
+  #jobs{margin-top:calc(var(--u)*8);display:flex;flex-direction:column;gap:calc(var(--u)*6)}
+  .job h2{font-size:var(--sub);font-weight:700;margin:0 0 calc(var(--u)*.5);word-break:break-word}
+  .job .status{font:400 var(--micro)/1.5 var(--mono);color:var(--muted);display:flex;gap:calc(var(--u)*2)}
+  .job .status .err{color:var(--vocals)}
+  .bar{height:3px;background:var(--line);margin-top:calc(var(--u)*1.5);border-radius:2px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--signal);transition:width .4s}
+  .bar.idle i{animation:pulse 1.4s ease-in-out infinite;width:12%}
+  @keyframes pulse{0%{margin-left:0}50%{margin-left:88%}100%{margin-left:0}}
+
+  /* lanes: the stem rack */
+  .lanes{margin-top:calc(var(--u)*3);border-top:1px solid var(--line)}
+  .lane{display:grid;grid-template-columns:40px 120px 1fr auto;gap:calc(var(--u)*2);align-items:center;
+        padding:calc(var(--u)*1.5) 0;border-bottom:1px solid var(--line)}
+  .lane .play{width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,.28);
+              display:grid;place-items:center;color:var(--ink)}
+  .lane .play:hover{border-color:var(--ink)}
+  .lane .play svg{width:12px;height:12px;fill:currentColor}
+  .lane .name{font-weight:700;display:flex;align-items:center;gap:var(--u)}
+  .lane .name i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+  .lane .seek{-webkit-appearance:none;appearance:none;width:100%;height:3px;background:var(--line);border-radius:2px;outline:0}
+  .lane .seek::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:var(--ink)}
+  .lane .right{display:flex;gap:calc(var(--u)*2);align-items:center;font:400 var(--micro)/1 var(--mono);color:var(--muted)}
+  .lane .right a{text-decoration:none;color:var(--ink);border-bottom:1px solid rgba(255,255,255,.28)}
+  .lane .right a:hover{border-color:var(--ink)}
+  .job .foot{margin-top:calc(var(--u)*1.5);font:400 var(--micro)/1.5 var(--mono);color:var(--muted);display:flex;gap:calc(var(--u)*3)}
+  .job .foot button{color:var(--ink);border-bottom:1px solid rgba(255,255,255,.28)}
+
+  @media (max-width:600px){
+    header{flex-wrap:wrap}
+    #drop strong{font-size:var(--title)}
+    .lane{grid-template-columns:40px 1fr auto;grid-template-rows:auto auto}
+    .lane .seek{grid-column:1/-1}
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>stemdrop</h1>
+    <p>vocals · drums · bass · other, split on this machine</p>
+    <div class="meta" id="meta">…</div>
+  </header>
+
+  <label id="drop">
+    <input type="file" id="file" accept="audio/*,.mp3,.wav,.flac,.m4a,.aif,.aiff,.ogg" multiple>
+    <strong>Drop a song</strong>
+    <span>or click to choose. mp3, wav, flac, m4a. A 3-minute track takes about two minutes on CPU.</span>
+  </label>
+
+  <div class="opts">
+    <div class="seg" id="models"></div>
+    <label><input type="checkbox" id="two"> two stems only: vocals / everything else</label>
+    <label><input type="checkbox" id="beat" checked> also render beat.wav (everything but vocals)</label>
+  </div>
+
+  <section id="jobs"></section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+let model = 'htdemucs';
+const COLORS = {vocals:'var(--vocals)',drums:'var(--drums)',bass:'var(--bass)',other:'var(--other)',
+                beat:'var(--beat)',no_vocals:'var(--beat)',guitar:'var(--other)',piano:'var(--other)'};
+const PLAY = '<svg viewBox="0 0 12 12"><path d="M2 1l9 5-9 5z"/></svg>';
+const PAUSE = '<svg viewBox="0 0 12 12"><path d="M2 1h3v10H2zM7 1h3v10H7z"/></svg>';
+
+fetch('/api/info').then(r=>r.json()).then(i=>{
+  $('#meta').textContent = 'device ' + i.device;
+  const seg = $('#models');
+  for (const [k,desc] of Object.entries(i.models)) {
+    const b = document.createElement('button'); b.textContent = k; b.title = desc;
+    b.className = k===model ? 'on' : '';
+    b.onclick = () => { model = k; [...seg.children].forEach(c=>c.className=c.textContent===k?'on':''); };
+    seg.appendChild(b);
+  }
+});
+
+// jobs from this server session survive a reload
+fetch('/api/jobs').then(r=>r.json()).then(list=>list.forEach(j=>{ const c=render(j); c.dataset.id=j.id; if(j.status!=='done'&&j.status!=='error') poll(j.id,c); }));
+
+const drop = $('#drop');
+['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop', ev => [...ev.dataTransfer.files].forEach(submit));
+$('#file').addEventListener('change', ev => { [...ev.target.files].forEach(submit); ev.target.value=''; });
+
+async function submit(file){
+  const fd = new FormData();
+  fd.append('file', file); fd.append('model', model);
+  fd.append('two_stems', $('#two').checked ? '1':'0'); fd.append('beat', $('#beat').checked ? '1':'0');
+  const card = render({id:'', name:file.name, status:'uploading', progress:0});
+  const r = await fetch('/api/split',{method:'POST',body:fd});
+  if(!r.ok){ card.querySelector('.status').innerHTML = '<span class="err">'+(await r.text())+'</span>'; return; }
+  const {id} = await r.json(); card.dataset.id = id;
+  poll(id, card);
+}
+
+async function poll(id, card){
+  const j = await (await fetch('/api/jobs/'+id)).json();
+  render(j, card);
+  if (j.status==='done' || j.status==='error') return;
+  setTimeout(()=>poll(id,card), 1000);
+}
+
+function fmt(s){ s=Math.max(0,s|0); return (s/60|0)+':'+String(s%60).padStart(2,'0'); }
+
+function render(j, card){
+  if(!card){
+    card = document.createElement('article'); card.className='job';
+    card.innerHTML = '<h2></h2><div class="status"></div><div class="bar"><i></i></div><div class="lanes" hidden></div><div class="foot" hidden></div>';
+    $('#jobs').prepend(card);
+  }
+  card.querySelector('h2').textContent = j.name;
+  const st = card.querySelector('.status'), bar = card.querySelector('.bar');
+  if (j.status==='error'){
+    st.innerHTML = '<span class="err">failed</span><span>'+esc(j.error||'')+'</span>'; bar.hidden = true; return card;
+  }
+  if (j.status==='done'){
+    st.innerHTML = '<span>done in '+fmt(j.seconds)+'</span><span>'+j.model+'</span>';
+    bar.hidden = true;
+    if (!card.dataset.rendered){ card.dataset.rendered = 1; lanes(j, card); }
+    return card;
+  }
+  const label = j.status==='uploading' ? 'uploading' : j.status==='queued' ? 'queued' : (j.note || 'separating');
+  st.innerHTML = '<span>'+label+'</span><span>'+(j.progress||0)+'%</span>';
+  bar.classList.toggle('idle', !j.progress);
+  bar.querySelector('i').style.width = (j.progress||0)+'%';
+  return card;
+}
+
+function lanes(j, card){
+  const box = card.querySelector('.lanes'); box.hidden = false; box.innerHTML = '';
+  for (const f of j.files){
+    const stem = f.replace(/\.wav$/,''); const url = '/api/jobs/'+j.id+'/file/'+encodeURIComponent(f);
+    const lane = document.createElement('div'); lane.className='lane';
+    lane.innerHTML = '<button class="play" aria-label="play">'+PLAY+'</button>'
+      + '<div class="name" style="--c:'+(COLORS[stem]||'var(--muted)')+'"><i></i>'+esc(stem.replace('_',' '))+'</div>'
+      + '<input class="seek" type="range" min="0" max="1000" value="0">'
+      + '<div class="right"><span class="t">'+fmt((j.durations||{})[f]||0)+'</span><a href="'+url+'?dl=1">download</a></div>';
+    const a = new Audio(url); a.preload = 'metadata';
+    const btn = lane.querySelector('.play'), seek = lane.querySelector('.seek'), t = lane.querySelector('.t');
+    btn.onclick = () => {
+      if (a.paused){ box.querySelectorAll('audio.playing').forEach(x=>x.pause()); a.play(); } else a.pause();
+    };
+    a.onplay = ()=>{ btn.innerHTML = PAUSE; a.classList.add('playing'); };
+    a.onpause = ()=>{ btn.innerHTML = PLAY; a.classList.remove('playing'); };
+    a.ontimeupdate = ()=>{ if(a.duration){ seek.value = 1000*a.currentTime/a.duration; t.textContent = fmt(a.currentTime); } };
+    a.onloadedmetadata = ()=>{ if(a.paused) t.textContent = fmt(a.duration); };
+    a.onended = ()=>{ seek.value = 0; t.textContent = fmt(a.duration); };
+    seek.oninput = ()=>{ if(a.duration) a.currentTime = a.duration*seek.value/1000; };
+    lane._audio = a; box.appendChild(lane);
+  }
+  // one transport: pausing others when a new one plays
+  box.querySelectorAll('.lane').forEach(l=>{ l._audio.addEventListener('play',()=>{
+    box.querySelectorAll('.lane').forEach(o=>{ if(o!==l && !o._audio.paused) o._audio.pause(); }); }); });
+  const foot = card.querySelector('.foot'); foot.hidden = false;
+  foot.innerHTML = '<button>open folder</button><span>24-bit wav, same sample rate as the source</span>';
+  foot.querySelector('button').onclick = ()=>fetch('/api/jobs/'+j.id+'/folder');
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+</script>
+</body>
+</html>
