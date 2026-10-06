@@ -21,14 +21,16 @@ The first split downloads the model weights once (160 MB for the MLX build, 80 M
 ## Engines
 
 On Apple Silicon, setup installs [demucs-mlx](https://github.com/ssmall256/demucs-mlx), a native MLX port of
-demucs that runs on the GPU with no PyTorch. A 3-minute song takes a few seconds. Everywhere else it installs
+demucs that runs on the GPU with no PyTorch. On an M-series Mac a 3-minute song takes about 5 seconds on
+`htdemucs` and 15 seconds on `htdemucs_ft` once the weights are cached (160 MB per model, 640 MB for the
+fine-tuned bag of four). Everywhere else it installs
 Meta's PyTorch demucs, which runs on CPU or CUDA; a 3-minute song takes a couple of minutes on CPU. The header
 of the page shows which engine is active. Same models, same stems either way.
 
 ## Options
 
 - **Model.** `htdemucs` is the default and the fastest. `htdemucs_ft` is the fine-tuned version:
-  cleaner, about four times slower. `htdemucs_6s` adds guitar and piano stems.
+  cleaner, about three times slower. `htdemucs_6s` adds guitar and piano stems.
 - **Two stems only.** Vocals vs. everything else, in one pass.
 - **beat.wav.** Sums drums + bass + other, scaled down only if the sum would clip.
 
