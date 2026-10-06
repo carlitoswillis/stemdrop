@@ -14,6 +14,23 @@ ROOT = Path(__file__).resolve().parent
 JOBS = ROOT / "jobs"
 JOBS.mkdir(exist_ok=True)
 STEMS = ["vocals", "drums", "bass", "other"]
+
+
+def detect_engine():
+    """demucs-mlx (Apple Silicon, no torch) if present, else PyTorch demucs."""
+    try:
+        import demucs_mlx  # noqa: F401
+        return "mlx"
+    except Exception:
+        pass
+    try:
+        import demucs  # noqa: F401
+        return "torch"
+    except Exception:
+        return None
+
+
+ENGINE = detect_engine()
 MODELS = {
     "htdemucs": "standard, fastest",
     "htdemucs_ft": "fine-tuned, cleaner, ~4x slower",
@@ -26,6 +43,8 @@ lock = threading.Lock()
 
 
 def pick_device(requested):
+    if ENGINE == "mlx":
+        return "apple gpu (mlx)"
     if requested != "auto":
         return requested
     # Apple's MPS backend fails inside htdemucs ("Output channels > 65536 not supported"),
@@ -56,13 +75,36 @@ def write_beat(stem_dir: Path):
     return out
 
 
+def collapse_to_two_stems(stem_dir: Path):
+    """Emulate demucs --two-stems for engines without it: keep vocals.wav, sum the rest into no_vocals.wav."""
+    parts = [p for p in stem_dir.glob("*.wav") if p.stem != "vocals"]
+    mix, sr = None, None
+    for p in parts:
+        x, sr = sf.read(p, dtype="float32", always_2d=True)
+        mix = x if mix is None else mix[: len(x)] + x[: len(mix)]
+    if mix is None:
+        return
+    peak = float(np.max(np.abs(mix))) if len(mix) else 0.0
+    if peak > 0.98:
+        mix = mix * (0.98 / peak)
+    sf.write(stem_dir / "no_vocals.wav", mix, sr, subtype="PCM_24")
+    for p in parts:
+        p.unlink()
+
+
 def run_job(job_id, src: Path, model, two_stems, device, make_beat):
     job = jobs[job_id]
     out_dir = JOBS / job_id / "out"
-    cmd = [sys.executable, "-m", "demucs", "-d", device, "-n", model, "-o", str(out_dir)]
-    if two_stems:
-        cmd += ["--two-stems", "vocals"]
-    cmd.append(str(src))
+    if ENGINE == "mlx":
+        cmd = [sys.executable, "-m", "demucs_mlx", "-n", model, "-o", str(out_dir), str(src)]
+    elif ENGINE == "torch":
+        cmd = [sys.executable, "-m", "demucs", "-d", device, "-n", model, "-o", str(out_dir)]
+        if two_stems:
+            cmd += ["--two-stems", "vocals"]
+        cmd.append(str(src))
+    else:
+        job.update(status="error", error="no separation engine installed: run ./setup.sh")
+        return
     job.update(status="running", started=time.time(), log=[" ".join(cmd)])
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -77,6 +119,8 @@ def run_job(job_id, src: Path, model, two_stems, device, make_beat):
                 if not line:
                     continue
                 m = re.search(r"(\d+)%\|", line) or re.search(r"(\d+)/(\d+)", line)
+                if m and m.group(0).startswith(("100%", "0%")) and ENGINE == "mlx":
+                    m = None  # mlx only reports whole tracks; keep the bar indeterminate
                 if m:
                     if m.lastindex == 2:
                         done, total = int(m.group(1)), int(m.group(2))
@@ -94,7 +138,10 @@ def run_job(job_id, src: Path, model, two_stems, device, make_beat):
                 buf += ch
         if proc.returncode != 0:
             raise RuntimeError("demucs exited with code %d\n%s" % (proc.returncode, "\n".join(job["log"][-8:])))
-        stem_dir = next((out_dir / model).glob("*"))
+        base = out_dir / model if ENGINE == "torch" else out_dir
+        stem_dir = next(p for p in base.glob("*") if p.is_dir())
+        if two_stems and ENGINE == "mlx":
+            collapse_to_two_stems(stem_dir)
         if make_beat and not two_stems:
             write_beat(stem_dir)
         files = sorted(p.name for p in stem_dir.glob("*.wav"))
@@ -119,7 +166,7 @@ def index():
 
 @app.get("/api/info")
 def info():
-    return jsonify(models=MODELS, device=pick_device(app.config["DEVICE"]))
+    return jsonify(models=MODELS, device=pick_device(app.config["DEVICE"]), engine=ENGINE)
 
 
 @app.post("/api/split")
@@ -186,5 +233,5 @@ if __name__ == "__main__":
     ap.add_argument("--host", default="127.0.0.1")
     args = ap.parse_args()
     app.config["DEVICE"] = args.device
-    print(f"\n  stemdrop  →  http://{args.host}:{args.port}   (device: {pick_device(args.device)})\n")
+    print(f"\n  stemdrop  →  http://{args.host}:{args.port}   (engine: {ENGINE}, device: {pick_device(args.device)})\n")
     app.run(host=args.host, port=args.port, debug=False, threaded=True)

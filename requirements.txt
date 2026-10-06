@@ -1,4 +1,7 @@
-demucs>=4.0
 flask>=3.0
 soundfile>=0.12
 numpy
+# Apple Silicon: native MLX port, no PyTorch, ~18x faster than demucs on CPU
+demucs-mlx>=1.6; sys_platform == "darwin" and platform_machine == "arm64"
+# everything else: Meta's reference implementation on PyTorch
+demucs>=4.0; not (sys_platform == "darwin" and platform_machine == "arm64")

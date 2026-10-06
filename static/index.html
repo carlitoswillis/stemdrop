@@ -93,7 +93,7 @@
   <label id="drop">
     <input type="file" id="file" accept="audio/*,.mp3,.wav,.flac,.m4a,.aif,.aiff,.ogg" multiple>
     <strong>Drop a song</strong>
-    <span>or click to choose. mp3, wav, flac, m4a. A 3-minute track takes about two minutes on CPU.</span>
+    <span>or click to choose. mp3, wav, flac, m4a.</span>
   </label>
 
   <div class="opts">
@@ -114,7 +114,7 @@ const PLAY = '<svg viewBox="0 0 12 12"><path d="M2 1l9 5-9 5z"/></svg>';
 const PAUSE = '<svg viewBox="0 0 12 12"><path d="M2 1h3v10H2zM7 1h3v10H7z"/></svg>';
 
 fetch('/api/info').then(r=>r.json()).then(i=>{
-  $('#meta').textContent = 'device ' + i.device;
+  $('#meta').textContent = (i.engine || 'no engine') + ' · ' + i.device;
   const seg = $('#models');
   for (const [k,desc] of Object.entries(i.models)) {
     const b = document.createElement('button'); b.textContent = k; b.title = desc;

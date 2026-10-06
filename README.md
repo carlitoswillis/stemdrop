@@ -15,8 +15,15 @@ cd stemdrop
 ./run.sh        # opens on http://127.0.0.1:7860
 ```
 
-Needs Python 3.10 to 3.13 and ffmpeg on PATH (demucs uses it to read mp3 / m4a).
-The first split downloads the model weights (about 80 MB) once.
+Needs Python 3.10 to 3.13 and ffmpeg on PATH (used to read mp3 / m4a).
+The first split downloads the model weights once (160 MB for the MLX build, 80 MB for the PyTorch build).
+
+## Engines
+
+On Apple Silicon, setup installs [demucs-mlx](https://github.com/ssmall256/demucs-mlx), a native MLX port of
+demucs that runs on the GPU with no PyTorch. A 3-minute song takes a few seconds. Everywhere else it installs
+Meta's PyTorch demucs, which runs on CPU or CUDA; a 3-minute song takes a couple of minutes on CPU. The header
+of the page shows which engine is active. Same models, same stems either way.
 
 ## Options
 
@@ -25,9 +32,9 @@ The first split downloads the model weights (about 80 MB) once.
 - **Two stems only.** Vocals vs. everything else, in one pass.
 - **beat.wav.** Sums drums + bass + other, scaled down only if the sum would clip.
 
-Flags: `./run.sh --port 8000`, `./run.sh --device cpu|cuda`. The default is CPU unless CUDA is
-present. Apple's MPS backend is not used because htdemucs crashes on it
-(`Output channels > 65536 not supported`).
+Flags: `./run.sh --port 8000`, `./run.sh --device cpu|cuda` (PyTorch engine only; the default is CPU unless
+CUDA is present. Apple's MPS backend is not used because htdemucs crashes on it, which is why the MLX engine
+exists).
 
 ## Where the files go
 
